@@ -28,12 +28,16 @@ def process_ingestData():
         if data:
             vectore_store = rag_milvus.create_collection(data)
             if data["url"] != "":
-                docs = rag_milvus.extract_web_data(data)                
+                docs = rag_milvus.extract_web_data(data)
+                for d in docs:
+                    d.metadata["doc_id"] = str(uuid_str)              
                 documents = rag_milvus.do_chunking(docs,data["chunkingMethod"], data["chunk_size"],data["chunk_overlap"])
             else:                            
                 rag_milvus.base64_to_file(data["file_base64_string"],data["fileName"],uuid_str)
-                print(f"{data['file_name']} loading....")                     
+                print(f"{data['fileName']} loading....")                     
                 documents = rag_milvus.convert_to_documents(uuid_str, data["fileName"], data["chunkingMethod"], data["chunk_size"],data["chunk_overlap"])            
+                for d in documents:
+                    d.metadata["doc_id"] = str(uuid_str)
                 try:                    
                     Proj_path=os.environ["PROJ_PATH"]    
                     shutil.rmtree(Proj_path+uuid_str)
@@ -42,7 +46,10 @@ def process_ingestData():
                     print(f"Error: {e}")
                 
             rag_milvus.insert_data(vectore_store, documents)
-            return f"document inserted into vector store collection. CollectionName: {data['name']}, documentId: {uuid_str}"           
+            response = {
+                "collectionName":data['name'],
+                "documentId": uuid_str}
+            return response           
         else:
             return jsonify({"error": "No JSON payload received"}), 400        
         return jsonify(data), 200
@@ -56,11 +63,24 @@ def process_delete_documents():
         data = request.get_json()        
         if data:
             status = rag_milvus.delete_document(data['doc_id'],data['collection_name'])
-            return status
+            return jsonify(status)
         else:
             return jsonify({"error": "No JSON payload received"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500      
+
+@app.route('/delete_collection',methods=['DELETE'])
+def process_delete_collection():
+    try:
+        data = request.get_json()        
+        if data:
+            status = rag_milvus.delete_collection(data['collection_name'])
+            return jsonify(status)
+        else:
+            return jsonify({"error": "No JSON payload received"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500  
+
 
 
 @app.route('/get_retriever',methods=['POST'])
@@ -101,4 +121,4 @@ def process_web_scrapper():
 #         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)

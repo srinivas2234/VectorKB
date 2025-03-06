@@ -36,7 +36,7 @@ from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers import EnsembleRetriever
 from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.embeddings import HuggingFaceEmbeddings
+# from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_milvus import Milvus as Milvus_hybridsearch, BM25BuiltInFunction
 import os
 import base64
@@ -164,7 +164,7 @@ def insert_data(vector_store, documents):
     return print(f"Data ingested.")
 
 def do_chunking(documents,chunk_method, chunk_size, chunk_overlap):  
-    chunk_docs = None  
+    chunk_docs = None
     if chunk_method == "CharacterTextSplitter":
         text_splitter = CharacterTextSplitter(chunk_size=chunk_size,chunk_overlap=chunk_overlap)
         chunk_docs = text_splitter.split_documents(documents)
@@ -185,14 +185,14 @@ def convert_to_documents(job_id, fileName, chunkingMethod, chunk_size,chunk_over
     chunked_docs=None
     Proj_path = os.environ["PROJ_PATH"]
     dir_path = os.path.join(Proj_path, job_id)
-    file_path = dir_path+fileName
+    file_path = dir_path+"\\"+fileName
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
 
     ext = os.path.splitext(file_path)[-1].lower()
     if ext == ".pdf":
         loader = PyPDFLoader(file_path)
-        docs = loader.load()
+        docs = loader.load()        
         chunked_docs = do_chunking(docs,chunkingMethod,chunk_size,chunk_overlap)
     elif ext == '.doc':
         loader = Docx2txtLoader(file_path)
@@ -229,7 +229,7 @@ def base64_to_file(base64_string, filename, job_id):
     Proj_path = os.environ["Proj_path"]  
     file_path = os.path.join(Proj_path, str(job_id))
     os.makedirs(file_path, exist_ok=True)
-    fp = file_path+filename
+    fp = file_path+"\\"+filename
     file_data = b64decode(base64_string, validate=True)    
     # Write the bytes to a file in binary mode
     with open(fp, "wb") as f:
@@ -257,7 +257,7 @@ def get_retriever(config):
         retrieverType = config["retrieverType"]        
         searchType="mmr",
         search_kwargs = {'k': 5,}
-        embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")     
+        # embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-large-en")     
         vectore_store = Milvus(collection_name=collection_name,
                                embedding_function=embeddings,
                                connection_args={"uri": URI,"token":TOKEN,"secure": True})
@@ -274,8 +274,8 @@ def get_retriever(config):
             retriever=vectore_store.as_retriever()        
         return retriever
 
-def delete_document(doc_name, collection_name):
-    print(f'Deleting {doc_name} from collection {collection_name}')
+def delete_document(document_id, collection_name):
+    print(f'Deleting {document_id} from collection {collection_name}')
     URI=os.environ["URI"]
     TOKEN=os.environ["TOKEN"]
     USERNAME=os.environ["USERNAME"]
@@ -288,12 +288,23 @@ def delete_document(doc_name, collection_name):
     if collection_name in client.list_collections():               
         res = client.delete(
                 collection_name=collection_name,
-                filter="source like '%{}%'".format(doc_name)
+                filter="doc_id like '%{}%'".format(document_id)
             )               
-        print(f"Deleted {doc_name} from collection {collection_name}")
+        print(f"Deleted {document_id} from collection {collection_name}")
         return res
     else:
         print(f'{collection_name} does not exists!')
+def delete_collection(collection_name):
+    URI=os.environ["URI"]
+    TOKEN=os.environ["TOKEN"]
+    USERNAME=os.environ["USERNAME"]
+    PASSWORD=os.environ["PASSWORD"]
+    client = MilvusClient(
+		uri=URI, # Cluster endpoint obtained from the console
+		token=USERNAME+":"+PASSWORD # API key or a colon-separated cluster username and password
+	)
+    status = client.drop_collection(collection_name=collection_name)
+    return status
 
 def extract_web_data(config):
     fc_api_key = os.environ["FC_API_KEY"]
@@ -302,4 +313,6 @@ def extract_web_data(config):
                             mode=config["mode"],                         
                             params={"maxDepth":config["maxDepth"],})
     docs = loader.load()
+    for i in docs:
+        i.metadata = {'sourceUrl':i.metadata['sourceURL']}
     return docs
