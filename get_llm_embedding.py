@@ -28,5 +28,5 @@ llm = AzureChatOpenAI(api_version="2024-08-01-preview",
 embeddings = AzureOpenAIEmbeddings(api_version="2023-05-15",
                                    api_key=os.environ["AZURE_OPENAI_API_KEY"],
                                     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT_EMBEDD"])
-# print(llm)
-# print(embeddings)
+print(llm)
+print(embeddings)

@@ -24,9 +24,10 @@ def process_createCollection():
 def process_ingestData():
     uuid_str = str(uuid.uuid4())
     try:
+        #vectore_store=None
         data = request.get_json()  
-        if data:
-            vectore_store = rag_milvus.create_collection(data)
+        if data:          
+            
             if data["url"] != "":
                 docs = rag_milvus.extract_web_data(data)
                 for d in docs:
@@ -45,11 +46,11 @@ def process_ingestData():
                 except Exception as e:
                     print(f"Error: {e}")
                 
-            rag_milvus.insert_data(vectore_store, documents)
+            rag_milvus.insert_data(data, documents)
             response = {
                 "collectionName":data['name'],
                 "documentId": uuid_str}
-            return response           
+            return jsonify(response)        
         else:
             return jsonify({"error": "No JSON payload received"}), 400        
         return jsonify(data), 200
@@ -89,7 +90,7 @@ def process_get_retriever():
         data = request.get_json()        
         if data:            
             retriever = rag_milvus.get_retriever(data)
-            return retriever
+            return  jsonify(f"Retriever: {retriever}")
         else:
             return jsonify({"error": "No JSON payload received"}), 400
     except Exception as e:
